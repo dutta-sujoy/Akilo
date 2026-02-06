@@ -1,0 +1,31 @@
+export default {
+  expo: {
+    name: "Akilo",
+    slug: "akilo",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/logo.png",
+    userInterfaceStyle: "dark",
+    scheme: "akilo",
+    newArchEnabled: true,
+    splash: {
+      image: "./assets/logo.png",
+      resizeMode: "contain",
+      backgroundColor: "#0a1a15"
+    },
+    ios: {
+      supportsTablet: true
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/logo.png",
+        backgroundColor: "#0a1a15"
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false
+    },
+    web: {
+      favicon: "./assets/logo.png"
+    }
+  }
+};
