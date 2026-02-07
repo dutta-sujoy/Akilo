@@ -22,10 +22,17 @@ export default {
         backgroundColor: "#0a1a15"
       },
       edgeToEdgeEnabled: true,
-      predictiveBackGestureEnabled: false
+      predictiveBackGestureEnabled: false,
+      package: "com.akilo.app"
     },
     web: {
       favicon: "./assets/logo.png"
+    },
+    extra: {
+      eas: {
+        projectId: "da981f7b-2997-47f9-834b-75ad68a16034"
+      }
     }
   }
 };
+
