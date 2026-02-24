@@ -10,6 +10,8 @@ import Svg, { Circle, G } from 'react-native-svg';
 import { useToast } from '../../components/Toast';
 import { DashboardSkeleton } from '../../components/SkeletonLoader';
 import { BarChart } from 'react-native-gifted-charts';
+import { dataEvents } from '../../core/dataEvents';
+import { ensureFoodDB } from '../../core/foodDB';
 
 const { width } = Dimensions.get('window');
 
@@ -164,7 +166,18 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { fetchDashboard(); }, []);
+  useEffect(() => { fetchDashboard(); ensureFoodDB(); }, []);
+
+  // Auto-refresh on data changes from other pages
+  useEffect(() => {
+    const unsub1 = dataEvents.on('food_logged', fetchDashboard);
+    const unsub2 = dataEvents.on('food_deleted', fetchDashboard);
+    const unsub3 = dataEvents.on('food_edited', fetchDashboard);
+    const unsub4 = dataEvents.on('water_logged', fetchDashboard);
+    const unsub5 = dataEvents.on('weight_logged', fetchDashboard);
+    const unsub6 = dataEvents.on('targets_updated', fetchDashboard);
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); };
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

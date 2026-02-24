@@ -6,6 +6,8 @@ import { Session } from '@supabase/supabase-js';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { ToastProvider } from '../components/Toast';
 import { hasCompletedOnboarding } from '../core/onboarding';
+import { NetworkProvider } from '../core/network';
+import { OfflineBanner } from '../components/OfflineBanner';
 import "../global.css";
 
 export default function RootLayout() {
@@ -86,9 +88,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ToastProvider>
-      <Slot />
-    </ToastProvider>
+    <NetworkProvider>
+      <ToastProvider>
+        <OfflineBanner />
+        <Slot />
+      </ToastProvider>
+    </NetworkProvider>
   );
 }
 
