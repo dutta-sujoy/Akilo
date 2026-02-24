@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, A
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
+import Slider from '@react-native-community/slider';
 import { api } from '../../core/api';
 import { Trash2, Plus, Coffee, Sun, Moon, Utensils, X, Search, Edit3 } from 'lucide-react-native';
 import { useToast } from '../../components/Toast';
@@ -26,10 +27,12 @@ interface FoodItem {
   id: string;
   name: string;
   source: 'master' | 'custom';
-  calories_per_100g: number;
-  protein_per_100g: number;
-  carbs_per_100g: number;
-  fats_per_100g: number;
+  calories_per_base: number;
+  protein_per_base: number;
+  carbs_per_base: number;
+  fats_per_base: number;
+  unit_type: string;
+  base_qty: number;
 }
 
 const mealIcons: Record<MealType, any> = {
@@ -44,6 +47,13 @@ const mealColors: Record<MealType, string> = {
   lunch: '#22c55e',
   snacks: '#a855f7',
   dinner: '#3b82f6',
+};
+
+const getSliderConfig = (unitType: string) => {
+  if (unitType === 'serving') {
+    return { min: 0, max: 20, step: 1, unit: 'serving' };
+  }
+  return { min: 0, max: 500, step: 5, unit: unitType };
 };
 
 export default function History() {
@@ -61,7 +71,7 @@ export default function History() {
   const [searching, setSearching] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<MealType>('breakfast');
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
-  const [quantity, setQuantity] = useState('100');
+  const [qty, setQty] = useState(100);
   const [addingFood, setAddingFood] = useState(false);
   
   // Delete confirmation modal
@@ -188,16 +198,16 @@ export default function History() {
     setSearching(true);
     try {
       const res = await api.get('/api/food/search', { q: query });
-      // Map fields from foods_master (calories, protein_g, etc.) to our interface format
       const mapFood = (food: any, source: 'master' | 'custom'): FoodItem => ({
         id: food.id,
         name: food.name,
         source,
-        // foods_master uses 'calories' per base_qty (usually 100g)
-        calories_per_100g: food.calories_per_100g || food.calories || 0,
-        protein_per_100g: food.protein_per_100g || food.protein_g || 0,
-        carbs_per_100g: food.carbs_per_100g || food.carbs_g || 0,
-        fats_per_100g: food.fats_per_100g || food.fats_g || 0,
+        calories_per_base: food.calories || 0,
+        protein_per_base: food.protein_g || 0,
+        carbs_per_base: food.carbs_g || 0,
+        fats_per_base: food.fats_g || 0,
+        unit_type: food.unit_type || 'g',
+        base_qty: food.base_qty || 100,
       });
       
       const masterFoods = (res.master || []).map((f: any) => mapFood(f, 'master'));
@@ -210,24 +220,34 @@ export default function History() {
     }
   };
 
+  // Calculate preview macros for selected food
+  const calcPreviewMacros = (food: FoodItem, currentQty: number) => {
+    const factor = currentQty / food.base_qty;
+    return {
+      calories: Math.round(food.calories_per_base * factor),
+      protein: Math.round(food.protein_per_base * factor * 10) / 10,
+      carbs: Math.round(food.carbs_per_base * factor * 10) / 10,
+      fats: Math.round(food.fats_per_base * factor * 10) / 10,
+    };
+  };
+
   // Add food to selected date
   const handleAddFood = async () => {
     if (!selectedFood) return;
     
     setAddingFood(true);
     try {
-      const qty = parseFloat(quantity) || 100;
-      const multiplier = qty / 100;
+      const macros = calcPreviewMacros(selectedFood, qty);
       
       await api.post('/api/food/log', {
         food_name: selectedFood.name,
         food_source: selectedFood.source || 'master',
         food_master_id: selectedFood.source === 'master' ? selectedFood.id : null,
         food_custom_id: selectedFood.source === 'custom' ? selectedFood.id : null,
-        calories: Math.round(selectedFood.calories_per_100g * multiplier),
-        protein_g: Math.round(selectedFood.protein_per_100g * multiplier * 10) / 10,
-        carbs_g: Math.round(selectedFood.carbs_per_100g * multiplier * 10) / 10,
-        fats_g: Math.round(selectedFood.fats_per_100g * multiplier * 10) / 10,
+        calories: macros.calories,
+        protein_g: macros.protein,
+        carbs_g: macros.carbs,
+        fats_g: macros.fats,
         qty: qty,
         meal_type: selectedMeal,
         date: selectedDate,
@@ -238,7 +258,7 @@ export default function History() {
       setSelectedFood(null);
       setSearchQuery('');
       setSearchResults([]);
-      setQuantity('100');
+      setQty(100);
       fetchLogs();
     } catch (e) {
       console.error('Add food error:', e);
@@ -286,6 +306,8 @@ export default function History() {
   // Calculate totals
   const totalCalories = logs.reduce((sum, log) => sum + (log.calories || 0), 0);
   const totalProtein = logs.reduce((sum, log) => sum + (log.protein_g || 0), 0);
+  const totalCarbs = logs.reduce((sum, log) => sum + (log.carbs_g || 0), 0);
+  const totalFats = logs.reduce((sum, log) => sum + (log.fats_g || 0), 0);
 
   // Format selected date for display
   const formatDate = (dateStr: string) => {
@@ -355,13 +377,18 @@ export default function History() {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{Math.round(totalProtein)}g</Text>
+            <Text style={[styles.summaryValue, { color: '#3b82f6' }]}>{Math.round(totalProtein)}g</Text>
             <Text style={styles.summaryLabel}>Protein</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{logs.length}</Text>
-            <Text style={styles.summaryLabel}>Items</Text>
+            <Text style={styles.summaryValue}>{Math.round(totalCarbs)}g</Text>
+            <Text style={styles.summaryLabel}>Carbs</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{Math.round(totalFats)}g</Text>
+            <Text style={styles.summaryLabel}>Fats</Text>
           </View>
         </View>
 
@@ -483,39 +510,81 @@ export default function History() {
                 <TouchableOpacity
                   key={food.id}
                   style={[styles.searchItem, selectedFood?.id === food.id && styles.searchItemSelected]}
-                  onPress={() => setSelectedFood(food)}
+                  onPress={() => { setSelectedFood(food); setQty(food.base_qty); }}
                 >
-                  <Text style={styles.searchItemName}>{food.name}</Text>
-                  <Text style={styles.searchItemCal}>{food.calories_per_100g} kcal/100g</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.searchItemName}>{food.name}</Text>
+                    <Text style={styles.searchItemMeta}>
+                      {food.base_qty}{food.unit_type} • {food.protein_per_base}g P  {food.carbs_per_base}g C  {food.fats_per_base}g F
+                    </Text>
+                  </View>
+                  <Text style={styles.searchItemCal}>{food.calories_per_base} kcal</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            {/* Quantity & Add */}
-            {selectedFood && (
-              <View style={styles.addSection}>
-                <View style={styles.quantityRow}>
-                  <Text style={styles.quantityLabel}>Quantity (g):</Text>
-                  <TextInput
-                    style={styles.quantityInput}
-                    value={quantity}
-                    onChangeText={setQuantity}
-                    keyboardType="numeric"
+            {/* Quantity Slider & Macro Preview */}
+            {selectedFood && (() => {
+              const sliderCfg = getSliderConfig(selectedFood.unit_type);
+              const preview = calcPreviewMacros(selectedFood, qty);
+              return (
+                <View style={styles.addSection}>
+                  {/* Macro Preview */}
+                  <View style={styles.macroPreviewRow}>
+                    <View style={styles.macroPreviewItem}>
+                      <Text style={styles.macroPreviewValue}>{preview.calories}</Text>
+                      <Text style={styles.macroPreviewLabel}>KCAL</Text>
+                    </View>
+                    <View style={[styles.macroPreviewItem, styles.macroPreviewHighlight]}>
+                      <Text style={[styles.macroPreviewValue, { color: '#0a1a15' }]}>{preview.protein}g</Text>
+                      <Text style={[styles.macroPreviewLabel, { color: '#0a1a15' }]}>PROT</Text>
+                    </View>
+                    <View style={styles.macroPreviewItem}>
+                      <Text style={styles.macroPreviewValue}>{preview.carbs}g</Text>
+                      <Text style={styles.macroPreviewLabel}>CARB</Text>
+                    </View>
+                    <View style={styles.macroPreviewItem}>
+                      <Text style={styles.macroPreviewValue}>{preview.fats}g</Text>
+                      <Text style={styles.macroPreviewLabel}>FAT</Text>
+                    </View>
+                  </View>
+
+                  {/* Slider */}
+                  <View style={styles.sliderHeader}>
+                    <Text style={styles.sliderLabel}>Quantity</Text>
+                    <Text style={styles.sliderValue}>{qty}<Text style={styles.sliderUnit}>{sliderCfg.unit === 'serving' ? ` serving${qty !== 1 ? 's' : ''}` : sliderCfg.unit}</Text></Text>
+                  </View>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={sliderCfg.min}
+                    maximumValue={sliderCfg.max}
+                    step={sliderCfg.step}
+                    value={qty}
+                    onValueChange={setQty}
+                    minimumTrackTintColor="#22c55e"
+                    maximumTrackTintColor="#1f3d32"
+                    thumbTintColor="#22c55e"
                   />
+                  <View style={styles.sliderRange}>
+                    <Text style={styles.sliderRangeText}>0{sliderCfg.unit !== 'serving' ? sliderCfg.unit : ''}</Text>
+                    <Text style={styles.sliderRangeText}>{sliderCfg.max / 2}{sliderCfg.unit !== 'serving' ? sliderCfg.unit : ''}</Text>
+                    <Text style={styles.sliderRangeText}>{sliderCfg.max}{sliderCfg.unit !== 'serving' ? sliderCfg.unit : ''}</Text>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={[styles.confirmButton, { marginTop: 16 }]}
+                    onPress={handleAddFood}
+                    disabled={addingFood}
+                  >
+                    {addingFood ? (
+                      <ActivityIndicator color="#0a1a15" />
+                    ) : (
+                      <Text style={styles.confirmButtonText}>Add {selectedFood.name}</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity 
-                  style={styles.confirmButton}
-                  onPress={handleAddFood}
-                  disabled={addingFood}
-                >
-                  {addingFood ? (
-                    <ActivityIndicator color="#0a1a15" />
-                  ) : (
-                    <Text style={styles.confirmButtonText}>Add {selectedFood.name}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -727,11 +796,29 @@ const styles = StyleSheet.create({
     borderRadius: 12, marginBottom: 8,
   },
   searchItemSelected: { backgroundColor: 'rgba(34, 197, 94, 0.2)', borderWidth: 1, borderColor: '#22c55e' },
-  searchItemName: { color: '#ffffff', fontSize: 15, flex: 1 },
-  searchItemCal: { color: '#6b7280', fontSize: 13 },
+  searchItemName: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
+  searchItemMeta: { color: '#22c55e', fontSize: 12, marginTop: 3 },
+  searchItemCal: { color: '#6b7280', fontSize: 13, fontWeight: '600' },
 
   // Add Section
   addSection: { marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 16 },
+
+  // Macro Preview
+  macroPreviewRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  macroPreviewItem: { flex: 1, backgroundColor: '#153528', padding: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#1f3d32' },
+  macroPreviewHighlight: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  macroPreviewValue: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  macroPreviewLabel: { color: '#6b7280', fontSize: 10, marginTop: 2 },
+
+  // Slider
+  sliderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  sliderLabel: { color: '#ffffff', fontSize: 16 },
+  sliderValue: { color: '#ffffff', fontSize: 28, fontWeight: 'bold' },
+  sliderUnit: { fontSize: 14, fontWeight: 'normal' },
+  slider: { width: '100%', height: 40 },
+  sliderRange: { flexDirection: 'row', justifyContent: 'space-between' },
+  sliderRangeText: { color: '#6b7280', fontSize: 12 },
+
   quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   quantityLabel: { color: '#9ca3af', fontSize: 15 },
   quantityInput: { 

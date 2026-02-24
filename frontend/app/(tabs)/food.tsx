@@ -233,6 +233,13 @@ export default function FoodSearch() {
     }
   };
 
+  const getSliderConfig = (unitType: string) => {
+    if (unitType === 'serving') {
+      return { min: 0, max: 20, step: 1, unit: 'serving' };
+    }
+    return { min: 0, max: 500, step: 5, unit: unitType };
+  };
+
   const renderFoodItem = ({ item }: { item: Food }) => (
     <TouchableOpacity 
       onPress={() => { setSelectedFood(item); setQty(item.base_qty); }}
@@ -395,28 +402,33 @@ export default function FoodSearch() {
             )}
 
             {/* Quantity Slider */}
-            <View style={styles.sliderSection}>
-              <View style={styles.sliderHeader}>
-                <Text style={styles.sliderLabel}>Quantity</Text>
-                <Text style={styles.sliderValue}>{qty}<Text style={styles.sliderUnit}>g</Text></Text>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={500}
-                step={5}
-                value={qty}
-                onValueChange={setQty}
-                minimumTrackTintColor="#22c55e"
-                maximumTrackTintColor="#1f3d32"
-                thumbTintColor="#22c55e"
-              />
-              <View style={styles.sliderRange}>
-                <Text style={styles.sliderRangeText}>0g</Text>
-                <Text style={styles.sliderRangeText}>250g</Text>
-                <Text style={styles.sliderRangeText}>500g</Text>
-              </View>
-            </View>
+            {selectedFood && (() => {
+              const sliderCfg = getSliderConfig(selectedFood.unit_type);
+              return (
+                <View style={styles.sliderSection}>
+                  <View style={styles.sliderHeader}>
+                    <Text style={styles.sliderLabel}>Quantity</Text>
+                    <Text style={styles.sliderValue}>{qty}<Text style={styles.sliderUnit}>{sliderCfg.unit === 'serving' ? ` serving${qty !== 1 ? 's' : ''}` : sliderCfg.unit}</Text></Text>
+                  </View>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={sliderCfg.min}
+                    maximumValue={sliderCfg.max}
+                    step={sliderCfg.step}
+                    value={qty}
+                    onValueChange={setQty}
+                    minimumTrackTintColor="#22c55e"
+                    maximumTrackTintColor="#1f3d32"
+                    thumbTintColor="#22c55e"
+                  />
+                  <View style={styles.sliderRange}>
+                    <Text style={styles.sliderRangeText}>0{sliderCfg.unit !== 'serving' ? sliderCfg.unit : ''}</Text>
+                    <Text style={styles.sliderRangeText}>{sliderCfg.max / 2}{sliderCfg.unit !== 'serving' ? sliderCfg.unit : ''}</Text>
+                    <Text style={styles.sliderRangeText}>{sliderCfg.max}{sliderCfg.unit !== 'serving' ? sliderCfg.unit : ''}</Text>
+                  </View>
+                </View>
+              );
+            })()}
 
             {/* Meal Type Selection */}
             <Text style={styles.mealLabel}>Meal</Text>
