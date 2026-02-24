@@ -6,6 +6,7 @@ import { api } from '../../core/api';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { Flame, Droplets, TrendingUp, TrendingDown, Scale, Activity } from 'lucide-react-native';
 import { AnalyticsSkeleton } from '../../components/SkeletonLoader';
+import { dataEvents } from '../../core/dataEvents';
 
 const { width } = Dimensions.get('window');
 
@@ -48,6 +49,17 @@ export default function Analytics() {
   useEffect(() => { setLoading(true); fetchAnalytics(); }, [period]);
 
   const onRefresh = useCallback(() => { setRefreshing(true); fetchAnalytics(); }, [period]);
+
+  // Auto-refresh on data changes
+  useEffect(() => {
+    const unsub1 = dataEvents.on('food_logged', fetchAnalytics);
+    const unsub2 = dataEvents.on('food_deleted', fetchAnalytics);
+    const unsub3 = dataEvents.on('water_logged', fetchAnalytics);
+    const unsub4 = dataEvents.on('weight_logged', fetchAnalytics);
+    const unsub5 = dataEvents.on('food_edited', fetchAnalytics);
+    const unsub6 = dataEvents.on('targets_updated', fetchAnalytics);
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); };
+  }, [period]);
 
   // Chart data with tap-to-show values
   const chartData = data.slice(-7).map((d) => {

@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { User, Target, LogOut, Edit3, ChevronRight, X, Check } from 'lucide-react-native';
 import { useToast } from '../../components/Toast';
 import { ProfileSkeleton } from '../../components/SkeletonLoader';
+import { dataEvents } from '../../core/dataEvents';
 
 export default function Profile() {
   const router = useRouter();
@@ -76,6 +77,13 @@ export default function Profile() {
   };
 
   useEffect(() => { fetchProfile(); }, []);
+
+  // Auto-refresh on profile/targets changes
+  useEffect(() => {
+    const unsub1 = dataEvents.on('profile_updated', fetchProfile);
+    const unsub2 = dataEvents.on('targets_updated', fetchProfile);
+    return () => { unsub1(); unsub2(); };
+  }, []);
 
   const handleSignOut = () => {
     showConfirm('Sign Out', 'Are you sure you want to sign out?', async () => {

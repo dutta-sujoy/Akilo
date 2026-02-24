@@ -6,6 +6,8 @@ import Slider from '@react-native-community/slider';
 import { api } from '../../core/api';
 import { Plus, X, Search, Heart, SlidersHorizontal } from 'lucide-react-native';
 import { useToast } from '../../components/Toast';
+import { searchFoodsLocal } from '../../core/foodDB';
+import { dataEvents } from '../../core/dataEvents';
 
 const { width } = Dimensions.get('window');
 
@@ -55,8 +57,18 @@ export default function FoodSearch() {
     if (!query) return;
     setLoading(true);
     try {
+      // Try local DB first (works offline)
+      const localResults = await searchFoodsLocal(query);
+      if (localResults.length > 0) {
+        const master = localResults.filter(f => f.source === 'master');
+        const custom = localResults.filter(f => f.source === 'custom').map(f => ({ ...f, is_custom: true }));
+        setResults({ master, custom });
+        setLoading(false);
+        return;
+      }
+
+      // Fallback to API
       const res = await api.get('/api/food/search', { q: query });
-      // Mark custom foods with is_custom flag
       const customWithFlag = (res.custom || []).map((f: Food) => ({ ...f, is_custom: true }));
       setResults({ master: res.master || [], custom: customWithFlag });
     } catch (e) {
@@ -222,6 +234,19 @@ export default function FoodSearch() {
     } else if (activeTab === 'custom') {
       loadCustom();
     }
+  }, [activeTab]);
+
+  // Auto-refresh when food data changes from other pages
+  useEffect(() => {
+    const refreshActiveTab = () => {
+      if (activeTab === 'recent') loadRecent();
+      else if (activeTab === 'favorites') loadFavorites();
+      else if (activeTab === 'custom') loadCustom();
+    };
+    const unsub1 = dataEvents.on('food_logged', refreshActiveTab);
+    const unsub2 = dataEvents.on('food_deleted', refreshActiveTab);
+    const unsub3 = dataEvents.on('food_edited', refreshActiveTab);
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, [activeTab]);
 
   const getMacroColor = (type: string) => {

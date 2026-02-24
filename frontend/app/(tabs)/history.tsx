@@ -8,6 +8,8 @@ import { api } from '../../core/api';
 import { Trash2, Plus, Coffee, Sun, Moon, Utensils, X, Search, Edit3 } from 'lucide-react-native';
 import { useToast } from '../../components/Toast';
 import { HistorySkeleton } from '../../components/SkeletonLoader';
+import { dataEvents } from '../../core/dataEvents';
+import { searchFoodsLocal } from '../../core/foodDB';
 
 type MealType = 'breakfast' | 'lunch' | 'snacks' | 'dinner';
 
@@ -114,6 +116,14 @@ export default function History() {
     fetchLogs();
   }, [selectedDate]);
 
+  // Auto-refresh on data changes
+  useEffect(() => {
+    const unsub1 = dataEvents.on('food_logged', fetchLogs);
+    const unsub2 = dataEvents.on('food_deleted', fetchLogs);
+    const unsub3 = dataEvents.on('food_edited', fetchLogs);
+    return () => { unsub1(); unsub2(); unsub3(); };
+  }, [selectedDate]);
+
   const handleDelete = (id: string, foodName: string) => {
     setItemToDelete({ id, name: foodName });
     setShowDeleteModal(true);
@@ -188,7 +198,7 @@ export default function History() {
     }
   };
 
-  // Search foods
+  // Search foods — local DB first, API fallback
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     if (query.length < 2) {
@@ -198,6 +208,25 @@ export default function History() {
     
     setSearching(true);
     try {
+      // Try local DB first (works offline)
+      const localResults = await searchFoodsLocal(query);
+      if (localResults.length > 0) {
+        setSearchResults(localResults.map(f => ({
+          id: f.id,
+          name: f.name,
+          source: f.source,
+          calories_per_base: f.calories,
+          protein_per_base: f.protein_g,
+          carbs_per_base: f.carbs_g,
+          fats_per_base: f.fats_g,
+          unit_type: f.unit_type,
+          base_qty: f.base_qty,
+        })));
+        setSearching(false);
+        return;
+      }
+
+      // Fallback to API
       const res = await api.get('/api/food/search', { q: query });
       const mapFood = (food: any, source: 'master' | 'custom'): FoodItem => ({
         id: food.id,
