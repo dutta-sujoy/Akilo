@@ -7,6 +7,7 @@ import { supabase } from '../../core/supabase';
 import { useRouter } from 'expo-router';
 import { User, Target, LogOut, Edit3, ChevronRight, X, Check } from 'lucide-react-native';
 import { useToast } from '../../components/Toast';
+import { ProfileSkeleton } from '../../components/SkeletonLoader';
 
 export default function Profile() {
   const router = useRouter();
@@ -157,6 +158,14 @@ export default function Profile() {
     { id: 'maintain', label: 'Maintain' },
     { id: 'muscle_gain', label: 'Build Muscle' }
   ];
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ProfileSkeleton />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

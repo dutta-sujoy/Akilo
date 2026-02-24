@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../core/api';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { Flame, Droplets, TrendingUp, TrendingDown, Scale, Activity } from 'lucide-react-native';
+import { AnalyticsSkeleton } from '../../components/SkeletonLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -93,10 +94,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#22c55e" />
-          <Text style={styles.loadingText}>Loading your progress...</Text>
-        </View>
+        <AnalyticsSkeleton />
       </SafeAreaView>
     );
   }

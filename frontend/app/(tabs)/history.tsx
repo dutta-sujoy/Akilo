@@ -7,6 +7,7 @@ import Slider from '@react-native-community/slider';
 import { api } from '../../core/api';
 import { Trash2, Plus, Coffee, Sun, Moon, Utensils, X, Search, Edit3 } from 'lucide-react-native';
 import { useToast } from '../../components/Toast';
+import { HistorySkeleton } from '../../components/SkeletonLoader';
 
 type MealType = 'breakfast' | 'lunch' | 'snacks' | 'dinner';
 
@@ -320,9 +321,7 @@ export default function History() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#22c55e" />
-        </View>
+        <HistorySkeleton />
       </SafeAreaView>
     );
   }

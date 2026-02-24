@@ -8,6 +8,7 @@ import { Plus, Droplets, Scale, X, Flame, Dumbbell, Wheat, Droplet } from 'lucid
 import { supabase } from '../../core/supabase';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useToast } from '../../components/Toast';
+import { DashboardSkeleton } from '../../components/SkeletonLoader';
 import { BarChart } from 'react-native-gifted-charts';
 
 const { width } = Dimensions.get('window');
@@ -229,8 +230,8 @@ export default function Dashboard() {
 
   if (loading && !data) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading...</Text>
+      <SafeAreaView style={styles.container}>
+        <DashboardSkeleton />
       </SafeAreaView>
     );
   }
